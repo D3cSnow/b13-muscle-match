@@ -1,17 +1,29 @@
-# Validation
+# Validation — Review expansion, 2026-10-10
 
-- 510 unique question IDs and prompts: the original 310 Core review items plus exactly 200 Exam-style items; five distinct choices per question.
-- All questions include a B13 course PDF printed-page citation and an external anatomy reference.
-- Each new item includes separate question-book and answer-book PDF page references for format evidence.
-- Six regions, six focuses (including Innervation and Integration in Exam-style), three learning priorities, and six exam formats checked.
-- All 200 new items received author review and an independent review for factual accuracy and a single defensible answer. All 28 numbered-statement answer subsets were checked. One overbroad tendon-injury claim was narrowed from loss to weakness of extension. Group-function revisions were reviewed separately, including the superficial-ulnar supply of palmaris brevis.
-- Browser checks: category selection, 20-question session scoring, locked answers, ten-question missed-answer review, all 180 category/region/focus/priority combinations, citation dialog, and category-specific focus reset.
-- Desktop and 390-pixel mobile layouts inspected; no horizontal overflow or JavaScript page errors.
-- The 12 distinct external URLs used by the new category were checked for public availability. A repeatedly timing-out UW Health link was replaced with a public Lippincott anatomy chapter, with its supporting page verified. Previously, a university-login-only core reference was replaced with a public University of Washington reference.
-- Native WebMCP validation was unavailable in the test browser. Optional tools are feature-detected and do not affect normal quiz use.
+## Question content
 
-The original question data file remains unchanged. The private source books, extracted text, and intermediate audit files are excluded from the public repository.
+- 1,110 unique IDs and prompts: 310 muscular Core review, 200 muscular Exam-style, 300 skeletal, and 300 cardiovascular questions.
+- The two existing muscular data files remain unchanged.
+- Every new question has five distinct choices, a valid keyed answer, brief feedback, one-based lecture PDF pages, and at least one external anatomy reference.
+- All seven newly supplied PDFs are represented. Source page bounds were checked against the actual documents, including diagram-heavy pages.
+- Every new item received an author review and a second independent content review for anatomical accuracy, ambiguity, and distractor validity. Numbered combinations were evaluated statement by statement. Repeated targets and several questions too close to historical-book targets were replaced.
+- Originality review used the supplied historical books and embedded lecture exam pages. Automated checking found no 12-word English prompt/option overlap with either historical book or the embedded CV exam slides. This is supporting evidence; it does not establish semantic originality by itself.
+- Source discrepancies affecting an answer are disclosed in question feedback. Anatomical variants are qualified rather than treating every diagram as universal.
+- Public reference URLs were checked for both availability and relevant content. Two retired e-library URLs that returned unrelated pages were removed. Inaccessible alternatives were replaced with public university or publisher sources.
 
-## Release verification
+## Application checks
 
-The publishing workflow repeats syntax and question-schema checks before deploying the static site. After deployment, verify category counts, answer feedback, citations, and the new data file at the public URL. If a broken category, scoring error, or missing source data reaches production, revert the release commit and redeploy the previous version; no database migration is involved.
+- All 432 system/category/region/focus/priority combinations checked, including empty selections and overlapping muscular focus tags.
+- Each system completed a 20-question session with ten deliberately incorrect responses, then a ten-question retry ending at 10/10. Correctness followed the shuffled answer text; all choices locked after submission.
+- System switching resets relevant filters. Muscular Core/Exam-style selection remains available, with the Innervation/Integration filter reset preserved.
+- Direct links to `#skeletal` and `#cardiovascular` select the correct bank on load.
+- Lecture dialogs show the correct file and actual PDF pages, including multiple-document citations and existing muscular question-style references.
+- Desktop and 390/320-pixel mobile layouts inspected. Statement combinations, emphasized negative stems, answer feedback, correction notices, and citation dialogs checked without horizontal overflow.
+- The complete local browser run passed with no JavaScript errors or failed asset requests. An earlier preview server exhausted its small connection queue during repeated isolated browser contexts; repeating against a larger preview queue passed. No site-code workaround was needed for that local test-server issue.
+- Native WebMCP was not available in the test browser. Optional tools remain feature-detected and do not affect ordinary quiz use.
+
+## Publishing
+
+GitHub Actions repeats syntax and bank-schema validation before publishing `dist`. Post-deployment verification checks the exact release files, all three bank counts, shuffled answer feedback, references, and main study flows at the public URL.
+
+If a broken bank, scoring error, or missing reference data appears in production, revert the release commit and redeploy the prior static version. No database migration or unpublishing is required. Course PDF scans, extracted text, private audit files, and test screenshots are excluded from the public repository.

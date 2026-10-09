@@ -4,28 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#18231f">
-  <meta name="description" content="Five-choice muscle anatomy practice, referenced to B13 Gross Anatomy volumes 5 and 6.">
-  <title>Muscle Match · B13</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2318231f'/%3E%3Cpath d='M7 23V9l9 10 9-10v14' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Five-choice skeletal, muscular, and cardiovascular anatomy practice with lecture and external references.">
+  <title>Review · B13</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2318231f'/%3E%3Ctext x='8' y='24' font-family='sans-serif' font-size='24' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css?v=review-20261010">
 </head>
 <body>
-  <header class="site-header"><a class="brand" href="./" aria-label="Muscle Match home"><span class="brand-mark">M</span> Muscle Match <span class="edition">B13</span></a><span class="course">GROSS ANATOMY</span></header>
+  <header class="site-header"><a class="brand" href="./" aria-label="Review home"><span class="brand-mark">R</span> Review <span class="edition">B13</span></a><span class="course">GROSS ANATOMY</span></header>
   <main id="main">
-    <div class="category-switch" role="group" aria-label="Question bank">
+    <div class="system-switch" role="group" aria-label="Anatomical system">
+      <button type="button" data-system="muscular" aria-pressed="true">Muscular <span id="muscular-count"></span></button>
+      <button type="button" data-system="skeletal" aria-pressed="false">Skeletal <span id="skeletal-count"></span></button>
+      <button type="button" data-system="cardiovascular" aria-pressed="false">Cardiovascular <span id="cardiovascular-count"></span></button>
+    </div>
+    <div id="category-switch" class="category-switch" role="group" aria-label="Muscle question bank">
       <button type="button" data-category="core" aria-pressed="true">Core review <span id="core-count"></span></button>
       <button type="button" data-category="exam" aria-pressed="false">Exam-style <span id="exam-count"></span></button>
     </div>
     <div class="filters" aria-label="Question selection">
-      <label>Region<select id="region"><option value="all">All regions</option><option>Head &amp; neck</option><option>Trunk</option><option>Shoulder &amp; arm</option><option>Forearm &amp; hand</option><option>Hip &amp; thigh</option><option>Leg &amp; foot</option></select></label>
-      <label>Focus<select id="focus"><option value="all">Mixed</option><option value="name">Muscle name</option><option value="action">Function</option><option value="origin">Origin</option><option value="insertion">Insertion</option><option data-exam-focus value="innervation" hidden disabled>Innervation</option><option data-exam-focus value="integration" hidden disabled>Integration</option></select></label>
+      <label>Region<select id="region"><option value="all">All regions</option></select></label>
+      <label>Focus<select id="focus"><option value="all">Mixed</option></select></label>
       <label>Priority<select id="priority"><option value="all">All levels</option><option value="essential">Essential</option><option value="important">Important</option><option value="standard">Standard</option></select></label>
     </div>
     <section id="quiz" aria-labelledby="question">
       <div class="session-line"><span id="progress-text">Question 1 / 20</span><span id="score-text">0 correct</span></div>
       <div class="progress" role="progressbar" aria-label="Session progress" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="progress-fill"></span></div>
-      <div class="question-meta"><span id="question-focus">Origin</span><span id="question-region">Shoulder &amp; arm</span></div>
-      <h1 id="question">Where does the supraspinatus originate?</h1>
+      <div class="question-meta"><span id="question-focus"></span><span id="question-region"></span></div>
+      <h1 id="question">Loading questions…</h1>
       <div id="question-statements" class="question-statements" hidden></div>
       <div id="options" class="options" role="group" aria-labelledby="question question-statements"></div>
       <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
@@ -35,14 +40,17 @@
     <p id="empty" role="status" hidden>No questions in this selection. Choose another region or focus.</p>
     <p id="load-error" role="alert" hidden>The questions could not load. Please reload the page.</p>
   </main>
-  <footer class="site-footer"><span>B13 Gross Anatomy · Vol. 5 &amp; 6</span><span id="bank-count"></span></footer>
+  <footer class="site-footer"><span id="source-summary">B13 Anatomy</span><span id="bank-count"></span></footer>
   <dialog id="source-dialog" aria-labelledby="source-title">
     <div class="dialog-head"><div><h2 id="source-title">PDF reference</h2><p id="source-subtitle"></p></div><button id="close-source" class="text-button">Close</button></div>
     <div id="source-pages"></div>
     <p id="source-correction" class="correction" hidden></p>
   </dialog>
-  <script src="questions.js"></script>
-  <script src="exam-questions.js"></script>
-  <script src="app.js"></script>
+  <script src="review-config.js?v=review-20261010"></script>
+  <script src="questions.js?v=review-20261010"></script>
+  <script src="exam-questions.js?v=review-20261010"></script>
+  <script src="skeletal-questions.js?v=review-20261010"></script>
+  <script src="cardiovascular-questions.js?v=review-20261010"></script>
+  <script src="app.js?v=review-20261010"></script>
 </body>
 </html>

@@ -1,13 +1,36 @@
 (() => {
   'use strict';
-  const bank = [...(window.MUSCLE_QUESTIONS||[]).map(q=>({...q,category:'core'})),...(window.MUSCLE_EXAM_QUESTIONS||[]).map(q=>({...q,category:'exam'}))];
+  const systems=window.REVIEW_SYSTEMS||{}, sourceDocuments=window.REVIEW_SOURCES||{};
+  const bank=[...(window.MUSCLE_QUESTIONS||[]).map(q=>({...q,system:'muscular',category:'core'})),...(window.MUSCLE_EXAM_QUESTIONS||[]).map(q=>({...q,system:'muscular',category:'exam'})),...(window.SKELETAL_QUESTIONS||[]),...(window.CARDIOVASCULAR_QUESTIONS||[])];
   const $ = id => document.getElementById(id);
-  if (!Array.isArray(bank) || !bank.length) { $('quiz').hidden = true; $('load-error').hidden = false; return; }
-  const focusLabels = {name:'Muscle name',action:'Function',origin:'Origin',insertion:'Insertion',innervation:'Innervation',integration:'Integration'};
-  let category='core';
+  if(!bank.length||!Object.keys(systems).length||![window.MUSCLE_QUESTIONS,window.MUSCLE_EXAM_QUESTIONS,window.SKELETAL_QUESTIONS,window.CARDIOVASCULAR_QUESTIONS].every(list=>list?.length)){$('quiz').hidden=true;$('load-error').hidden=false;return;}
+  const focusLabels=Object.assign({},...Object.values(systems).map(s=>s.focuses));
+  let system=Object.hasOwn(systems,location.hash.slice(1))?location.hash.slice(1):'muscular';
+  let category=system==='muscular'?'core':'lecture';
   let session = [], position = 0, choices = [], responses = [], answered = false, mode = 'practice';
   const shuffle = list => { const a = [...list]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
-  const filteredBank = () => bank.filter(q => q.category===category && ['region','focus','priority'].every(key => $(key).value === 'all' || q[key] === $(key).value || (key==='focus'&&q.focusTags?.includes($(key).value))));
+  const filteredBank = () => bank.filter(q => q.system===system && q.category===category && ['region','focus','priority'].every(key => $(key).value === 'all' || q[key] === $(key).value || (key==='focus'&&q.focusTags?.includes($(key).value))));
+  const citationsFor=q=>q.sources||[{document:`vol${q.source.volume}`,pages:q.source.pages.map(page=>page+sourceDocuments[`vol${q.source.volume}`].printedOffset)}];
+  function fillSelect(id,entries,allLabel,reset){
+    const previous=reset?'all':$(id).value;$(id).replaceChildren();
+    [['all',allLabel],...entries].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;$(id).append(option);});
+    $(id).value=[...$(id).options].some(o=>o.value===previous)?previous:'all';
+  }
+  function configureFilters(reset=true){
+    fillSelect('region',systems[system].regions.map(region=>[region,region]),'All regions',reset);
+    const focuses=Object.entries(systems[system].focuses).filter(([key])=>!(system==='muscular'&&category==='core'&&['innervation','integration'].includes(key)));
+    fillSelect('focus',focuses,'Mixed',reset);
+    if(reset)$('priority').value='all';
+    $('category-switch').hidden=system!=='muscular';
+    document.querySelectorAll('[data-system]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.system===system)));
+    document.querySelectorAll('[data-category]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.category===category)));
+    $('source-summary').textContent=systems[system].footer;
+  }
+  function chooseSystem(value){
+    if(!Object.hasOwn(systems,value)||system===value)return;
+    system=value;category=system==='muscular'?'core':'lecture';configureFilters();start();
+    history.replaceState(null,'',`#${system}`);
+  }
   function paintText(target,text){
     target.replaceChildren();
     text.split(/\b(NOT|INCORRECT|EXCEPT)\b/g).forEach(part=>{if(['NOT','INCORRECT','EXCEPT'].includes(part)){const strong=document.createElement('strong');strong.textContent=part;target.append(strong);}else target.append(document.createTextNode(part));});
@@ -41,10 +64,11 @@
     });
     $('references').replaceChildren();
     const ref=document.createElement('button');ref.type='button';ref.className='reference';
-    ref.textContent=`Vol. ${q.source.volume} · ${q.source.pages.length>1?'pp.':'p.'} ${q.source.pages.join(', ')}`;
-    ref.setAttribute('aria-label',`Open PDF reference: volume ${q.source.volume}, printed pages ${q.source.pages.join(', ')}`);
-    ref.addEventListener('click',()=>openSource(q)); $('references').append(ref);
-    (q.externalSources||[]).forEach(source=>{const link=document.createElement('a');link.className='reference';link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=source.label.split(' · ')[0];link.title=source.label;link.setAttribute('aria-label',`Open external reference: ${source.label}`);$('references').append(link);});
+    if(q.source){ref.textContent=`Vol. ${q.source.volume} · ${q.source.pages.length>1?'pp.':'p.'} ${q.source.pages.join(', ')}`;}
+    else{const refs=citationsFor(q),first=refs[0];ref.textContent=`${sourceDocuments[first.document].label} · PDF ${first.pages.length>1?'pp.':'p.'} ${first.pages.join(', ')}${refs.length>1?` +${refs.length-1}`:''}`;}
+    ref.setAttribute('aria-label','View lecture references');
+    ref.addEventListener('click',()=>openSource(q));$('references').append(ref);
+    (q.externalSources||[]).forEach(source=>{const link=document.createElement('a');link.className='reference';link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=source.label.split(/\s+[·—–]\s+/)[0];link.title=source.label;link.setAttribute('aria-label',`Open external reference: ${source.label}`);$('references').append(link);});
   }
   function updateProgress(value){ $('progress-fill').style.width=`${value/session.length*100}%`;document.querySelector('.progress').setAttribute('aria-valuenow',value); }
   function answer(displayIndex){
@@ -63,7 +87,7 @@
     if(q.correction){const c=document.createElement('div');c.className='correction';c.textContent='Source correction: '+q.correction.text+' ';const a=document.createElement('a');a.href=q.correction.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Anatomy reference';c.append(a);$('feedback').append(c);}
     $('score-text').textContent=`${responses.filter(r=>r.correct).length} correct`;updateProgress(position+1);
     $('next').textContent=position===session.length-1?'Finish session':'Next question';$('next').hidden=false;
-    return {correct,answer:q.options[q.answer],reference:q.source};
+    return {correct,answer:q.options[q.answer],references:citationsFor(q)};
   }
   function next(){ if($('quiz').hidden || !answered)return false; if(position+1<session.length){position++;renderQuestion();$('options').firstElementChild?.focus();}else finish();return true; }
   function finish(){
@@ -78,14 +102,17 @@
     $('summary').append(h,score,caption,actions);h.setAttribute('tabindex','-1');h.focus();
   }
   function openSource(q){
-    $('source-title').textContent=`B13 Gross Anatomy · Vol. ${q.source.volume}`;
-    $('source-subtitle').textContent=`B13大體解剖學vol.${q.source.volume}.pdf`;
+    const citations=citationsFor(q),first=sourceDocuments[citations[0].document];
+    $('source-title').textContent=citations.length===1?first.title:'Lecture references';
+    $('source-subtitle').textContent=citations.length===1?first.file:`${citations.length} source documents`;
     $('source-pages').replaceChildren();
-    q.source.pages.forEach(page=>{
-      const pdfPage=page+(q.source.volume===5?5:4);
-      const fig=document.createElement('figure');fig.className='source-page';
-      const cap=document.createElement('figcaption');const label=document.createElement('span');label.textContent=`Printed p. ${page} · PDF page ${pdfPage}`;
-      cap.append(label);fig.append(cap);$('source-pages').append(fig);
+    citations.forEach(citation=>{
+      const doc=sourceDocuments[citation.document],section=document.createElement('section');section.className='lecture-source';
+      if(citations.length>1){const h=document.createElement('h3');h.textContent=doc.title;const p=document.createElement('p');p.textContent=doc.file;section.append(h,p);}
+      citation.pages.forEach(page=>{
+        const fig=document.createElement('figure');fig.className='source-page';
+        const cap=document.createElement('figcaption');cap.textContent=`PDF page ${page}${doc.printedOffset&&page>doc.printedOffset?` · Printed p. ${page-doc.printedOffset}`:''}`;fig.append(cap);section.append(fig);
+      });$('source-pages').append(section);
     });
     if(q.styleSource){
       const section=document.createElement('section');section.className='style-sources';
@@ -98,38 +125,37 @@
     $('source-dialog').showModal();
   }
   ['region','focus','priority'].forEach(id=>$(id).addEventListener('change',()=>start()));
+  document.querySelectorAll('[data-system]').forEach(button=>button.addEventListener('click',()=>chooseSystem(button.dataset.system)));
   document.querySelectorAll('[data-category]').forEach(button=>button.addEventListener('click',()=>{
-    if(category===button.dataset.category)return;
-    category=button.dataset.category;
-    document.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.category===category)));
-    document.querySelectorAll('[data-exam-focus]').forEach(option=>{option.hidden=category==='core';option.disabled=category==='core';});
-    if(category==='core'&&['innervation','integration'].includes($('focus').value))$('focus').value='all';
-    start();
+    if(system!=='muscular'||category===button.dataset.category)return;
+    category=button.dataset.category;configureFilters(false);start();
   }));
+  window.addEventListener('hashchange',()=>chooseSystem(location.hash.slice(1)));
   $('next').addEventListener('click',next);$('close-source').addEventListener('click',()=>$('source-dialog').close());
   $('source-dialog').addEventListener('click',e=>{if(e.target===$('source-dialog')){const r=$('source-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('source-dialog').close();}});
   document.addEventListener('keydown',e=>{if($('source-dialog').open||['SELECT','INPUT','TEXTAREA','BUTTON','A'].includes(e.target.tagName))return;if(/^[1-5]$/.test(e.key)){e.preventDefault();answer(Number(e.key)-1);}else if(e.key==='Enter'&&answered&&!$('quiz').hidden){e.preventDefault();next();}});
   $('bank-count').textContent=`${bank.length} questions`;
+  Object.keys(systems).forEach(key=>$(key+'-count').textContent=bank.filter(q=>q.system===key).length);
   $('core-count').textContent=bank.filter(q=>q.category==='core').length;
   $('exam-count').textContent=bank.filter(q=>q.category==='exam').length;
-  start();
+  configureFilters();start();
   const context=document.modelContext;
   if(context?.registerTool){
     const lifecycle=new AbortController();
     const readState=()=>{
       const score=responses.filter(r=>r.correct).length;
-      if($('quiz').hidden)return {status:session.length?'complete':'empty',correct:score,total:session.length};
+      if($('quiz').hidden)return {status:session.length?'complete':'empty',system,category,correct:score,total:session.length};
       const q=session[position];
-      return {status:answered?'answered':'awaiting_answer',questionId:q.id,category:q.category,position:position+1,total:session.length,correct:score,focus:$('question-focus').textContent,region:q.region,prompt:q.prompt,options:choices.map((c,i)=>({letter:String.fromCharCode(65+i),text:c.text})),reference:q.source,...(q.styleSource?{styleReference:q.styleSource}:{}),...(answered?{answer:q.options[q.answer],feedback:q.note}:{})};
+      return {status:answered?'answered':'awaiting_answer',questionId:q.id,system:q.system,category:q.category,position:position+1,total:session.length,correct:score,focus:$('question-focus').textContent,region:q.region,prompt:q.prompt,options:choices.map((c,i)=>({letter:String.fromCharCode(65+i),text:c.text})),references:citationsFor(q),...(q.styleSource?{styleReference:q.styleSource}:{}),...(answered?{answer:q.options[q.answer],feedback:q.note}:{})};
     };
     const validate=(input,keys)=>{
       if(!input || typeof input!=='object' || Array.isArray(input) || Object.keys(input).some(k=>!keys.includes(k)))throw new Error('Invalid input.');
       if(keys.includes('questionId') && (input.questionId!==session[position]?.id || $('quiz').hidden))throw new Error('This question is no longer active. Read the current question first.');
     };
     const toolDefinitions=[
-      {name:'read_current_question',title:'Read muscle question',description:'Read the visible question, five answer choices, progress, and PDF reference. Correct answers appear only after submission.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute(input){validate(input,[]);return readState();}},
-      {name:'submit_muscle_answer',title:'Submit muscle answer',description:'Submit one letter A–E for the current question. Locks the answer and updates the visible feedback and score.',inputSchema:{type:'object',properties:{questionId:{type:'string'},letter:{type:'string',enum:['A','B','C','D','E']}},required:['questionId','letter'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute(input){validate(input,['questionId','letter']);if(typeof input.letter!=='string'||! /^[A-E]$/.test(input.letter))throw new Error('Choose a letter from A to E.');if(!answer(input.letter.charCodeAt(0)-65))throw new Error('This question has already been answered.');return readState();}},
-      {name:'advance_muscle_question',title:'Next muscle question',description:'After an answer, advance to the next question or finish the current session and show its score.',inputSchema:{type:'object',properties:{questionId:{type:'string'}},required:['questionId'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute(input){validate(input,['questionId']);if(!next())throw new Error('Answer the current question before advancing.');return readState();}}
+      {name:'read_current_question',title:'Read anatomy question',description:'Read the visible question, five answer choices, progress, and PDF reference. Correct answers appear only after submission.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute(input){validate(input,[]);return readState();}},
+      {name:'submit_review_answer',title:'Submit review answer',description:'Submit one letter A–E for the current question. Locks the answer and updates the visible feedback and score.',inputSchema:{type:'object',properties:{questionId:{type:'string'},letter:{type:'string',enum:['A','B','C','D','E']}},required:['questionId','letter'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute(input){validate(input,['questionId','letter']);if(typeof input.letter!=='string'||! /^[A-E]$/.test(input.letter))throw new Error('Choose a letter from A to E.');if(!answer(input.letter.charCodeAt(0)-65))throw new Error('This question has already been answered.');return readState();}},
+      {name:'advance_review_question',title:'Next anatomy question',description:'After an answer, advance to the next question or finish the current session and show its score.',inputSchema:{type:'object',properties:{questionId:{type:'string'}},required:['questionId'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute(input){validate(input,['questionId']);if(!next())throw new Error('Answer the current question before advancing.');return readState();}}
     ];
     for(const tool of toolDefinitions){try{Promise.resolve(context.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{});}catch{}}
     window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
