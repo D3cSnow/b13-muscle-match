@@ -1,12 +1,17 @@
 (() => {
   'use strict';
-  const bank = window.MUSCLE_QUESTIONS;
+  const bank = [...(window.MUSCLE_QUESTIONS||[]).map(q=>({...q,category:'core'})),...(window.MUSCLE_EXAM_QUESTIONS||[]).map(q=>({...q,category:'exam'}))];
   const $ = id => document.getElementById(id);
   if (!Array.isArray(bank) || !bank.length) { $('quiz').hidden = true; $('load-error').hidden = false; return; }
-  const focusLabels = {name:'Muscle name',action:'Function',origin:'Origin',insertion:'Insertion'};
+  const focusLabels = {name:'Muscle name',action:'Function',origin:'Origin',insertion:'Insertion',innervation:'Innervation',integration:'Integration'};
+  let category='core';
   let session = [], position = 0, choices = [], responses = [], answered = false, mode = 'practice';
   const shuffle = list => { const a = [...list]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
-  const filteredBank = () => bank.filter(q => ['region','focus','priority'].every(key => $(key).value === 'all' || q[key] === $(key).value));
+  const filteredBank = () => bank.filter(q => q.category===category && ['region','focus','priority'].every(key => $(key).value === 'all' || q[key] === $(key).value || (key==='focus'&&q.focusTags?.includes($(key).value))));
+  function paintText(target,text){
+    target.replaceChildren();
+    text.split(/\b(NOT|INCORRECT|EXCEPT)\b/g).forEach(part=>{if(['NOT','INCORRECT','EXCEPT'].includes(part)){const strong=document.createElement('strong');strong.textContent=part;target.append(strong);}else target.append(document.createTextNode(part));});
+  }
   function start(list = filteredBank(), review = false) {
     mode = review ? 'review' : 'practice';
     session = shuffle(list).slice(0,review ? list.length : 20); position = 0; responses = []; answered = false;
@@ -16,8 +21,12 @@
   function renderQuestion() {
     const q=session[position]; if(!q)return;
     answered=false; choices=shuffle(q.options.map((text,index)=>({text,index})));
-    $('question').textContent=q.prompt;
-    $('question-focus').textContent=focusLabels[q.focus]; $('question-region').textContent=q.region;
+    $('quiz').dataset.questionId=q.id;
+    const lines=q.prompt.split('\n').filter(line=>line.trim());
+    paintText($('question'),lines[0]);
+    $('question-statements').replaceChildren();$('question-statements').hidden=lines.length<2;
+    lines.slice(1).forEach(line=>{const statement=document.createElement('p');paintText(statement,line);$('question-statements').append(statement);});
+    $('question-focus').textContent=focusLabels[$('focus').value==='all'?q.focus:$('focus').value]; $('question-region').textContent=q.region;
     $('progress-text').textContent=`${mode==='review'?'Review':'Question'} ${position+1} / ${session.length}`;
     $('score-text').textContent=`${responses.filter(r=>r.correct).length} correct`;
     document.querySelector('.progress').setAttribute('aria-valuemax',session.length);
@@ -78,15 +87,31 @@
       const cap=document.createElement('figcaption');const label=document.createElement('span');label.textContent=`Printed p. ${page} · PDF page ${pdfPage}`;
       cap.append(label);fig.append(cap);$('source-pages').append(fig);
     });
+    if(q.styleSource){
+      const section=document.createElement('section');section.className='style-sources';
+      const heading=document.createElement('h3');heading.textContent='Question style';section.append(heading);
+      [['B13大體解剖學期中Lecture題目 (1).pdf',q.styleSource.pdfPages],['B13大體解剖學期中Lecture詳解.pdf',q.styleSource.answerPdfPages]].forEach(([title,pages])=>{const p=document.createElement('p');const name=document.createElement('span');name.textContent=title;const page=document.createElement('small');page.textContent=`PDF ${pages.length>1?'pages':'page'} ${pages.join(', ')}`;p.append(name,page);section.append(p);});
+      $('source-pages').append(section);
+    }
     $('source-correction').hidden=!q.correction;
     $('source-correction').textContent=q.correction?'Source correction: '+q.correction.text:'';
     $('source-dialog').showModal();
   }
   ['region','focus','priority'].forEach(id=>$(id).addEventListener('change',()=>start()));
+  document.querySelectorAll('[data-category]').forEach(button=>button.addEventListener('click',()=>{
+    if(category===button.dataset.category)return;
+    category=button.dataset.category;
+    document.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.category===category)));
+    document.querySelectorAll('[data-exam-focus]').forEach(option=>{option.hidden=category==='core';option.disabled=category==='core';});
+    if(category==='core'&&['innervation','integration'].includes($('focus').value))$('focus').value='all';
+    start();
+  }));
   $('next').addEventListener('click',next);$('close-source').addEventListener('click',()=>$('source-dialog').close());
   $('source-dialog').addEventListener('click',e=>{if(e.target===$('source-dialog')){const r=$('source-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('source-dialog').close();}});
   document.addEventListener('keydown',e=>{if($('source-dialog').open||['SELECT','INPUT','TEXTAREA','BUTTON','A'].includes(e.target.tagName))return;if(/^[1-5]$/.test(e.key)){e.preventDefault();answer(Number(e.key)-1);}else if(e.key==='Enter'&&answered&&!$('quiz').hidden){e.preventDefault();next();}});
   $('bank-count').textContent=`${bank.length} questions`;
+  $('core-count').textContent=bank.filter(q=>q.category==='core').length;
+  $('exam-count').textContent=bank.filter(q=>q.category==='exam').length;
   start();
   const context=document.modelContext;
   if(context?.registerTool){
@@ -95,7 +120,7 @@
       const score=responses.filter(r=>r.correct).length;
       if($('quiz').hidden)return {status:session.length?'complete':'empty',correct:score,total:session.length};
       const q=session[position];
-      return {status:answered?'answered':'awaiting_answer',questionId:q.id,position:position+1,total:session.length,correct:score,focus:focusLabels[q.focus],region:q.region,prompt:q.prompt,options:choices.map((c,i)=>({letter:String.fromCharCode(65+i),text:c.text})),reference:q.source,...(answered?{answer:q.options[q.answer],feedback:q.note}:{})};
+      return {status:answered?'answered':'awaiting_answer',questionId:q.id,category:q.category,position:position+1,total:session.length,correct:score,focus:$('question-focus').textContent,region:q.region,prompt:q.prompt,options:choices.map((c,i)=>({letter:String.fromCharCode(65+i),text:c.text})),reference:q.source,...(q.styleSource?{styleReference:q.styleSource}:{}),...(answered?{answer:q.options[q.answer],feedback:q.note}:{})};
     };
     const validate=(input,keys)=>{
       if(!input || typeof input!=='object' || Array.isArray(input) || Object.keys(input).some(k=>!keys.includes(k)))throw new Error('Invalid input.');
